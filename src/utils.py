@@ -211,3 +211,60 @@ def save_pdf_from_s3_to_static(s3_key, static_dir="static"):
         return local_path
     except Exception as e:
         return None
+
+def get_file_from_s3(s3_uri):
+    """
+    Retrieve a file from S3 using the provided URI or s3_key.
+    Args:
+        s3_uri: S3 URI in the format 's3://bucket-name/path/to/file' or just the S3 key.
+    Returns:
+        Binary content of the file
+    """
+    # If s3_uri is a full URI, parse bucket and key
+    if s3_uri.startswith('s3://'):
+        parts = s3_uri.replace('s3://', '').split('/', 1)
+        if len(parts) < 2:
+            raise ValueError(f"Invalid S3 URI format: {s3_uri}")
+        bucket = parts[0]
+        key = parts[1]
+    else:
+        # Use configured bucket and prefix
+        bucket = st.secrets["aws"]["bucket_name"]
+        key = get_full_s3_key(s3_uri)
+    try:
+        s3_client = get_s3_client()
+        file_obj = BytesIO()
+        s3_client.download_fileobj(bucket, key, file_obj)
+        file_obj.seek(0)
+        return file_obj.read()
+    except Exception as e:
+        raise Exception(f"Error accessing S3: {str(e)}")
+
+def embed_pdf_base64(file_path_or_s3key):
+    """
+    Create an HTML string to embed a PDF using base64 encoding.
+    Args:
+        file_path_or_s3key: Local file path or S3 key/URI.
+    Returns:
+        HTML string with embedded PDF viewer
+    """
+    try:
+        # Handle S3 keys/URIs
+        if file_path_or_s3key.startswith('s3://') or not os.path.exists(file_path_or_s3key):
+            pdf_content = get_file_from_s3(file_path_or_s3key)
+        else:
+            with open(file_path_or_s3key, "rb") as f:
+                pdf_content = f.read()
+        base64_pdf = base64.b64encode(pdf_content).decode('utf-8')
+        pdf_display = f"""
+            <iframe 
+                src="data:application/pdf;base64,{base64_pdf}" 
+                width="100%" 
+                height="800px" 
+                style="border: none; border-radius: 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.2);"
+                type="application/pdf">
+            </iframe>
+        """
+        return pdf_display
+    except Exception as e:
+        return f"<p style='color:red'>Error displaying PDF: {str(e)}</p>"
