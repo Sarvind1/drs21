@@ -2,13 +2,23 @@
 
 import streamlit as st
 from datetime import datetime
+from botocore.exceptions import ClientError
+from s3_utils import get_full_s3_key, get_s3_client  # Update imports
 
 
 from utils import (
     load_data,
     format_status_tag,
     format_portal_status,
-    embed_pdf_with_fallback,  # <-- update import
+    embed_pdf_with_fallback,
+    embed_pdf_base64,
+    embed_pdf_in_browser,
+    embed_pdf_with_pdfjs,
+    embed_pdf_with_pdfjs_viewer,
+    embed_pdf_streamlit,
+    embed_pdf_with_presigned_url,
+    embed_pdf_streamlit_with_presigned_url,
+    embed_pdf_streamlit_enhanced,
     generate_comparison_pairs,
     export_audit_trail
 )
@@ -209,12 +219,47 @@ if 'selected_comparison' in st.session_state:
                    unsafe_allow_html=True)
 
         # Additional embedding methods for debugging/comparison:
-        st.markdown("**Base64 iframe method:**", unsafe_allow_html=True)
-        from utils import embed_pdf_base64, embed_pdf_in_browser, embed_pdf_with_pdfjs
-        st.markdown(embed_pdf_base64(v2_row['file_path'].iloc[0] if not v2_row.empty else ''), unsafe_allow_html=True)
+        s3_key = v2_row['file_path'].iloc[0] if not v2_row.empty else ''
+        try:
+            full_key = get_full_s3_key(s3_key)
+            st.write("Debug info:")
+            st.write(f"S3 key: {s3_key}")
+            st.write(f"Full S3 path: {full_key}")
+            
+            # Try to verify if file exists
+            s3_client = get_s3_client()
+            bucket_name = st.secrets["aws"]["bucket_name"]
+            try:
+                s3_client.head_object(Bucket=bucket_name, Key=full_key)
+                st.write("✅ File exists in S3")
+            except ClientError as e:
+                if e.response['Error']['Code'] == '404':
+                    st.error("❌ File not found in S3")
+                else:
+                    st.error(f"❌ Error checking file: {str(e)}")
+        except Exception as e:
+            st.error(f"Error getting S3 info: {str(e)}")
 
-        st.markdown("**Object/embed method:**", unsafe_allow_html=True)
-        st.markdown(embed_pdf_in_browser(v2_row['file_path'].iloc[0] if not v2_row.empty else ''), unsafe_allow_html=True)
+        # Method 1: Base64 iframe
+        st.markdown("**1. Base64 iframe method:**", unsafe_allow_html=True)
+        st.markdown(embed_pdf_base64(s3_key), unsafe_allow_html=True)
 
-        st.markdown("**PDF.js method:**", unsafe_allow_html=True)
-        st.markdown(embed_pdf_with_pdfjs(v2_row['file_path'].iloc[0] if not v2_row.empty else ''), unsafe_allow_html=True)
+        # Method 2: Object/embed
+        st.markdown("**2. Object/embed method:**", unsafe_allow_html=True)
+        st.markdown(embed_pdf_in_browser(s3_key), unsafe_allow_html=True)
+
+        # Method 3: PDF.js
+        st.markdown("**3. PDF.js viewer method:**", unsafe_allow_html=True)
+        st.markdown(embed_pdf_with_pdfjs_viewer(s3_key), unsafe_allow_html=True)
+
+        # Method 4: Presigned URL
+        st.markdown("**4. Presigned URL method:**", unsafe_allow_html=True)
+        st.markdown(embed_pdf_with_presigned_url(s3_key), unsafe_allow_html=True)
+
+        # Method 5: Streamlit embed with presigned URL
+        st.markdown("**5. Streamlit embed with presigned URL method:**", unsafe_allow_html=True)
+        embed_pdf_streamlit_with_presigned_url(s3_key)
+
+        # Method 6: Enhanced Streamlit embed
+        st.markdown("**6. Enhanced Streamlit embed method:**", unsafe_allow_html=True)
+        embed_pdf_streamlit_enhanced(s3_key)
