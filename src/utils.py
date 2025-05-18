@@ -7,6 +7,7 @@ from datetime import datetime
 from io import StringIO
 import csv
 import tempfile
+import uuid
 from s3_utils import upload_file_to_s3, download_file_from_s3, get_s3_file_url, get_s3_client, get_full_s3_key
 import streamlit as st
 
@@ -132,4 +133,19 @@ def export_audit_trail(audit_trail):
         # Clean up temporary file
         os.unlink(temp_file.name)
     
-    return buffer.getvalue() 
+    return buffer.getvalue()
+
+def save_pdf_from_s3_to_static(s3_key, static_dir="static"):
+    """Download PDF from S3 and save to a local static directory. Returns local path."""
+    try:
+        s3_client = get_s3_client()
+        bucket_name = st.secrets["aws"]["bucket_name"]
+        full_key = get_full_s3_key(s3_key)
+        os.makedirs(static_dir, exist_ok=True)
+        unique_name = f"{uuid.uuid4()}.pdf"
+        local_path = os.path.join(static_dir, unique_name)
+        with open(local_path, "wb") as f:
+            s3_client.download_fileobj(bucket_name, full_key, f)
+        return local_path
+    except Exception as e:
+        return None
