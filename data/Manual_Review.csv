@@ -1,0 +1,11 @@
+Batch,batch_count,portal_status,reason
+BATCH0008145,1,Accepted 103,Reason 105
+BATCH0008145,2,Accepted 104,Reason 106
+BATCH0008145,3,Accepted 105,Reason 107
+BATCH0008145,4,Accepted 106,Reason 108
+BATCH0008146,1,Accepted 107,Reason 109
+BATCH0008146,2,Accepted 108,Reason 110
+BATCH0008147,1,Accepted 109,Reason 111
+BATCH0008147,2,Accepted 110,Reason 112
+BATCH0008147,3,Accepted 111,Reason 113
+BATCH0008147,4,Accepted 112,Reason 114 

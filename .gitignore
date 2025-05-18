@@ -1,0 +1,64 @@
+# Python virtual environment
+streamlit-env/
+venv/
+env/
+
+# Python cache files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Distribution / packaging
+dist/
+build/
+develop-eggs/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# IDE specific files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS specific files
+.DS_Store
+Thumbs.db
+
+# Environment variables
+.env
+.env.local
+
+# Streamlit secrets
+.streamlit/secrets.toml
+
+# Local development files
+*.log 
+
+# Static files
+static/
+media/
+uploads/
+*.pdf
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.ico
+*.svg
+*.woff
+*.woff2
+*.ttf
+*.eot 
