@@ -4,7 +4,7 @@ import base64
 import os
 import pandas as pd
 from datetime import datetime
-from io import StringIO
+from io import StringIO, BytesIO
 import csv
 import tempfile
 import uuid
@@ -94,6 +94,68 @@ def embed_pdf_from_s3(s3_key):
     except Exception as e:
         return f"<p style='color:red'>Error displaying PDF: {str(e)}</p>"
 
+def embed_pdf_in_browser(s3_key):
+    """Display PDF from S3 directly in the browser without iframe."""
+    try:
+        s3_client = get_s3_client()
+        bucket_name = st.secrets["aws"]["bucket_name"]
+        full_key = get_full_s3_key(s3_key)
+        buffer = BytesIO()
+        s3_client.download_fileobj(bucket_name, full_key, buffer)
+        buffer.seek(0)
+        base64_pdf = base64.b64encode(buffer.read()).decode('utf-8')
+        pdf_display = f'''
+        <object data="data:application/pdf;base64,{base64_pdf}" 
+                type="application/pdf" 
+                width="100%" 
+                height="800px">
+            <embed src="data:application/pdf;base64,{base64_pdf}" 
+                  type="application/pdf">
+            </embed>
+        </object>
+        '''
+        return pdf_display
+    except Exception as e:
+        return f"<p style='color:red'>Error displaying PDF: {str(e)}</p>"
+
+def embed_pdf_with_pdfjs(s3_key):
+    """Display PDF from S3 using PDF.js (Mozilla's PDF viewer)."""
+    try:
+        s3_client = get_s3_client()
+        bucket_name = st.secrets["aws"]["bucket_name"]
+        full_key = get_full_s3_key(s3_key)
+        buffer = BytesIO()
+        s3_client.download_fileobj(bucket_name, full_key, buffer)
+        buffer.seek(0)
+        base64_pdf = base64.b64encode(buffer.read()).decode('utf-8')
+        # Minimal PDF.js embed (for demo; for production use a full viewer)
+        pdf_display = f'''
+        <div id="pdfjs-canvas-container" style="width:100%;height:800px;">
+            <canvas id="pdfjs-canvas" style="width:100%;height:100%;"></canvas>
+        </div>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
+        <script>
+        const pdfData = atob("{base64_pdf}");
+        const pdfjsLib = window['pdfjs-dist/build/pdf'];
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
+        const loadingTask = pdfjsLib.getDocument({{data: new Uint8Array([...pdfData].map(c => c.charCodeAt(0))) }});
+        loadingTask.promise.then(function(pdf) {{
+            pdf.getPage(1).then(function(page) {{
+                var scale = 1.5;
+                var viewport = page.getViewport({{scale: scale}});
+                var canvas = document.getElementById('pdfjs-canvas');
+                var context = canvas.getContext('2d');
+                canvas.height = viewport.height;
+                canvas.width = viewport.width;
+                page.render({{canvasContext: context, viewport: viewport}});
+            }});
+        }});
+        </script>
+        '''
+        return pdf_display
+    except Exception as e:
+        return f"<p style='color:red'>Error displaying PDF: {str(e)}</p>"
+
 def generate_comparison_pairs(versions):
     """Generate pairs of versions for comparison."""
     if len(versions) < 2:
@@ -147,25 +209,5 @@ def save_pdf_from_s3_to_static(s3_key, static_dir="static"):
         with open(local_path, "wb") as f:
             s3_client.download_fileobj(bucket_name, full_key, f)
         return local_path
-    except Exception as e:
-        return None
-
-def get_long_presigned_url(s3_key, expires_in=604800):
-    """Generate a long-lived presigned S3 URL (default 7 days)."""
-    try:
-        s3_client = get_s3_client()
-        bucket_name = st.secrets["aws"]["bucket_name"]
-        full_key = get_full_s3_key(s3_key)
-        signed_url = s3_client.generate_presigned_url(
-            'get_object',
-            Params={
-                'Bucket': bucket_name,
-                'Key': full_key,
-                'ResponseContentDisposition': 'inline',
-                'ResponseContentType': 'application/pdf'
-            },
-            ExpiresIn=expires_in
-        )
-        return signed_url
     except Exception as e:
         return None
