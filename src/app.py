@@ -8,7 +8,7 @@ from utils import (
     load_data,
     format_status_tag,
     format_portal_status,
-    embed_pdf_from_s3,
+    embed_pdf_with_fallback,  # <-- update import
     generate_comparison_pairs,
     export_audit_trail
 )
@@ -196,7 +196,7 @@ if 'selected_comparison' in st.session_state:
         v1_reason = v1_row['reason'].iloc[0] if not v1_row.empty else ''
         st.markdown(f"#### Version {v1} {format_portal_status(v1_status,v1_reason)}",
                    unsafe_allow_html=True)
-        st.markdown(embed_pdf_from_s3(v1_row['file_path'].iloc[0] if not v1_row.empty else ''),
+        st.markdown(embed_pdf_with_fallback(v1_row['file_path'].iloc[0] if not v1_row.empty else ''),
                    unsafe_allow_html=True)
     
     with col2:
@@ -205,5 +205,5 @@ if 'selected_comparison' in st.session_state:
         v2_reason = v2_row['reason'].iloc[0] if not v2_row.empty else ''
         st.markdown(f"#### Version {v2} {format_portal_status(v2_status,v2_reason)}",
                    unsafe_allow_html=True)
-        st.markdown(embed_pdf_from_s3(v2_row['file_path'].iloc[0] if not v2_row.empty else ''),
-                   unsafe_allow_html=True) 
+        st.markdown(embed_pdf_with_fallback(v2_row['file_path'].iloc[0] if not v2_row.empty else ''),
+                   unsafe_allow_html=True)
