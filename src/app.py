@@ -19,7 +19,6 @@ from utils import (
     embed_pdf_with_presigned_url,
     embed_pdf_streamlit_with_presigned_url,
     embed_pdf_streamlit_enhanced,
-    embed_pdf_with_streamlit_viewer,  # Add this import
     generate_comparison_pairs,
     export_audit_trail
 )
@@ -264,7 +263,3 @@ if 'selected_comparison' in st.session_state:
         # Method 6: Enhanced Streamlit embed
         st.markdown("**6. Enhanced Streamlit embed method:**", unsafe_allow_html=True)
         embed_pdf_streamlit_enhanced(s3_key)
-
-        # Method 7: Streamlit PDF Viewer Component
-        st.markdown("**7. Streamlit PDF Viewer Component:**", unsafe_allow_html=True)
-        embed_pdf_with_streamlit_viewer(s3_key)

@@ -12,7 +12,6 @@ from s3_utils import upload_file_to_s3, download_file_from_s3, get_s3_file_url, 
 import streamlit as st
 import boto3
 from botocore.exceptions import ClientError
-from streamlit_pdf_viewer import pdf_viewer
 
 def load_data():
     """Load and prepare the review data."""
@@ -350,14 +349,6 @@ def embed_pdf_base64(file_path_or_s3key):
 
 def embed_pdf_with_fallback(s3_key):
     """Try multiple methods to display PDF with fallbacks."""
-    try:
-        # Try streamlit-pdf-viewer first (most reliable)
-        if embed_pdf_with_streamlit_viewer(s3_key):
-            return ""  # Return empty string since viewer is already rendered
-    except Exception:
-        pass
-    
-    # Fallback to other methods
     html = embed_pdf_with_pdfjs_viewer(s3_key)
     if not html or html.strip().startswith("<p style='color:red'>"):
         html = embed_pdf_with_presigned_url(s3_key)
@@ -514,39 +505,6 @@ def embed_pdf_streamlit_enhanced(s3_key):
                    unsafe_allow_html=True)
         st.components.v1.html(html_download, height=100)
         
-        return True
-    except Exception as e:
-        st.error(f"Error displaying PDF: {str(e)}")
-        return False
-
-def embed_pdf_with_streamlit_viewer(s3_key):
-    """Display PDF using streamlit-pdf-viewer component."""
-    try:
-        s3_client = get_s3_client()
-        bucket_name = st.secrets["aws"]["bucket_name"]
-        full_key = get_full_s3_key(s3_key)
-        buffer = BytesIO()
-        
-        try:
-            s3_client.download_fileobj(bucket_name, full_key, buffer)
-        except ClientError as e:
-            if e.response['Error']['Code'] == '404':
-                st.error(f"PDF not found: {s3_key}")
-                return False
-            raise
-            
-        buffer.seek(0)
-        # Use a shorter temporary filename
-        tmp_dir = tempfile.gettempdir()
-        tmp_path = os.path.join(tmp_dir, f"{uuid.uuid4().hex[:8]}.pdf")
-        try:
-            with open(tmp_path, 'wb') as f:
-                f.write(buffer.getvalue())
-            pdf_viewer(tmp_path)
-        finally:
-            # Clean up temp file
-            if os.path.exists(tmp_path):
-                os.unlink(tmp_path)
         return True
     except Exception as e:
         st.error(f"Error displaying PDF: {str(e)}")
