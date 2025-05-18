@@ -59,36 +59,39 @@ def format_portal_status(status, reason=""):
     tooltip = f" title='{reason}'" if reason else ""
     return f"<span class='portal-status'{tooltip}>{status}</span>"
 
-def embed_pdf_base64(s3_key):
-    """Embed a PDF file from S3 as base64 in HTML."""
+def embed_pdf_from_s3(s3_key):
+    """Display PDF from S3 using a signed URL (works on Streamlit Cloud)."""
     try:
-        # Download the PDF content from S3
+        # Get S3 client and details
         s3_client = get_s3_client()
         bucket_name = st.secrets["aws"]["bucket_name"]
         full_key = get_full_s3_key(s3_key)
-        
-        # Get the PDF content directly from S3
-        response = s3_client.get_object(Bucket=bucket_name, Key=full_key)
-        pdf_content = response['Body'].read()
-        
-        # Encode the PDF content as base64
-        base64_pdf = base64.b64encode(pdf_content).decode('utf-8')
-        
-        # Create the PDF viewer HTML with base64 data
+
+        # Generate pre-signed URL valid for 10 minutes
+        signed_url = s3_client.generate_presigned_url(
+            'get_object',
+            Params={
+                'Bucket': bucket_name,
+                'Key': full_key,
+                'ResponseContentDisposition': 'inline',
+                'ResponseContentType': 'application/pdf'
+            },
+            ExpiresIn=600
+        )
+
+        # Embed signed URL in an iframe
         pdf_display = f'''
-            <div style="width:100%; height:60vh;">
-                <embed
-                    type="application/pdf"
-                    src="data:application/pdf;base64,{base64_pdf}"
-                    width="100%"
-                    height="100%"
-                    style="border: 1px solid #ddd; border-radius: 4px;"
-                />
-            </div>
+            <iframe
+                src="{signed_url}"
+                width="100%"
+                height="800px"
+                style="border: none; border-radius: 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.2);"
+                type="application/pdf">
+            </iframe>
         '''
         return pdf_display
     except Exception as e:
-        return f"<div style='padding:20px; border:1px solid #ddd; background:#f9f9f9;'><h3>Error Loading PDF</h3><code>{str(e)}</code></div>"
+        return f"<p style='color:red'>Error displaying PDF: {str(e)}</p>"
 
 def generate_comparison_pairs(versions):
     """Generate pairs of versions for comparison."""
