@@ -149,3 +149,23 @@ def save_pdf_from_s3_to_static(s3_key, static_dir="static"):
         return local_path
     except Exception as e:
         return None
+
+def get_long_presigned_url(s3_key, expires_in=604800):
+    """Generate a long-lived presigned S3 URL (default 7 days)."""
+    try:
+        s3_client = get_s3_client()
+        bucket_name = st.secrets["aws"]["bucket_name"]
+        full_key = get_full_s3_key(s3_key)
+        signed_url = s3_client.generate_presigned_url(
+            'get_object',
+            Params={
+                'Bucket': bucket_name,
+                'Key': full_key,
+                'ResponseContentDisposition': 'inline',
+                'ResponseContentType': 'application/pdf'
+            },
+            ExpiresIn=expires_in
+        )
+        return signed_url
+    except Exception as e:
+        return None
