@@ -327,37 +327,38 @@ def embed_pdf_base64(file_path_or_s3key):
         HTML string with embedded PDF viewer
     """
     try:
-        # Handle S3 keys/URIs
         if file_path_or_s3key.startswith('s3://') or not os.path.exists(file_path_or_s3key):
             pdf_content = get_file_from_s3(file_path_or_s3key)
         else:
             with open(file_path_or_s3key, "rb") as f:
                 pdf_content = f.read()
+        
         base64_pdf = base64.b64encode(pdf_content).decode('utf-8')
-        pdf_display = f"""
-            <iframe 
-                src="data:application/pdf;base64,{base64_pdf}" 
-                width="100%" 
-                height="800px" 
-                style="border: none; border-radius: 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.2);"
-                type="application/pdf">
-            </iframe>
-        """
+        pdf_display = f'''
+        <div style="width:100%; height:800px; overflow:hidden;">
+            <object
+                data="data:application/pdf;base64,{base64_pdf}"
+                type="application/pdf"
+                width="100%"
+                height="100%">
+                <embed
+                    src="data:application/pdf;base64,{base64_pdf}"
+                    type="application/pdf"
+                    width="100%"
+                    height="100%">
+                <iframe
+                    src="data:application/pdf;base64,{base64_pdf}"
+                    width="100%"
+                    height="100%"
+                    style="border:none;"
+                    title="PDF Viewer">
+                </iframe>
+            </object>
+        </div>
+        '''
         return pdf_display
     except Exception as e:
         return f"<p style='color:red'>Error displaying PDF: {str(e)}</p>"
-
-def embed_pdf_with_fallback(s3_key):
-    """Try multiple methods to display PDF with fallbacks."""
-    # Try presigned URL with PDF.js first (most reliable)
-    html = embed_pdf_with_pdfjs_viewer(s3_key)
-    if not html or html.strip().startswith("<p style='color:red'>"):
-        # Try direct presigned URL
-        html = embed_pdf_with_presigned_url(s3_key)
-        if not html or html.strip().startswith("<p style='color:red'>"):
-            # Fallback to base64
-            html = embed_pdf_base64(s3_key)
-    return html
 
 def embed_pdf_with_presigned_url(s3_key, expiration=3600):
     """Display PDF using a pre-signed S3 URL."""
@@ -372,86 +373,86 @@ def embed_pdf_with_presigned_url(s3_key, expiration=3600):
                 'Bucket': bucket_name,
                 'Key': full_key,
                 'ResponseContentType': 'application/pdf',
-                'ResponseContentDisposition': 'inline'
+                'ResponseContentDisposition': 'inline; filename="document.pdf"',
+                'ResponseCacheControl': 'no-store, must-revalidate',
+                'ResponseExpires': '0'
             },
             ExpiresIn=expiration
         )
         
-        html = f'''
-        <div style="width:100%; height:800px;">
-            <iframe 
-                src="{url}" 
-                width="100%" 
-                height="100%" 
-                style="border: none;">
-            </iframe>
+        pdf_display = f'''
+        <div style="width:100%; height:800px; overflow:hidden;">
+            <object
+                data="{url}"
+                type="application/pdf"
+                width="100%"
+                height="100%">
+                <embed
+                    src="{url}"
+                    type="application/pdf"
+                    width="100%"
+                    height="100%">
+                <iframe
+                    src="{url}"
+                    width="100%"
+                    height="100%"
+                    style="border:none;"
+                    allow="fullscreen"
+                    sandbox="allow-same-origin allow-scripts allow-forms allow-downloads allow-popups"
+                    title="PDF Viewer">
+                </iframe>
+            </object>
         </div>
         '''
-        return html
+        return pdf_display
     except Exception as e:
         return f"<p style='color:red'>Error generating pre-signed URL: {str(e)}</p>"
 
-def embed_pdf_streamlit_with_presigned_url(s3_key, expiration=3600):
-    """Display PDF in Streamlit using a pre-signed S3 URL."""
-    try:
-        s3_client = get_s3_client()
-        bucket_name = st.secrets["aws"]["bucket_name"]
-        full_key = get_full_s3_key(s3_key)
-        
-        url = s3_client.generate_presigned_url(
-            'get_object',
-            Params={
-                'Bucket': bucket_name,
-                'Key': full_key,
-                'ResponseContentType': 'application/pdf',
-                'ResponseContentDisposition': 'inline'
-            },
-            ExpiresIn=expiration
-        )
-        
-        html = f'''
-        <iframe 
-            src="{url}" 
-            width="100%" 
-            height="800" 
-            style="border: none;">
-        </iframe>
-        '''
-        
-        st.components.v1.html(html, height=800, scrolling=True)
-        st.markdown(f"[Open PDF directly]({url})")
-        return True
-    except Exception as e:
-        st.error(f"Error displaying PDF: {str(e)}")
-        return False
-
 def embed_pdf_with_pdfjs_viewer(s3_key):
-    """Display PDF using PDF.js built-in viewer."""
+    """Display PDF using PDF.js built-in viewer with enhanced security and display options."""
     try:
         s3_client = get_s3_client()
         bucket_name = st.secrets["aws"]["bucket_name"]
         full_key = get_full_s3_key(s3_key)
         
-        # Generate pre-signed URL with inline content disposition
+        # Generate secure URL with strict content headers
         url = s3_client.generate_presigned_url(
             'get_object',
             Params={
                 'Bucket': bucket_name,
                 'Key': full_key,
                 'ResponseContentType': 'application/pdf',
-                'ResponseContentDisposition': 'inline'
+                'ResponseContentDisposition': 'inline; filename="document.pdf"',
+                'ResponseCacheControl': 'no-store, must-revalidate',
+                'ResponseExpires': '0',
+                'ResponseContentLanguage': 'en-US'
             },
             ExpiresIn=3600
         )
         
+        # Use multiple PDF.js viewers for fallback
+        viewers = [
+            "https://mozilla.github.io/pdf.js/web/viewer.html",
+            "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/web/viewer.html",
+            f"data:application/pdf;base64,{base64.b64encode(get_file_from_s3(s3_key)).decode('utf-8')}"
+        ]
+        
         pdf_display = f'''
         <div style="width:100%; height:800px;">
-            <iframe
-                src="https://mozilla.github.io/pdf.js/web/viewer.html?file={url}"
-                width="100%"
-                height="100%"
-                style="border: none;">
+            <iframe id="pdf-viewer"
+                    src="{viewers[0]}?file={url}"
+                    width="100%"
+                    height="100%"
+                    style="border:none;"
+                    allow="fullscreen"
+                    sandbox="allow-same-origin allow-scripts allow-forms allow-downloads allow-popups">
             </iframe>
+            <script>
+                // Fallback mechanism if first viewer fails
+                document.getElementById('pdf-viewer').onerror = function() {{
+                    this.src = "{viewers[1]}?file={url}";
+                }};
+            </script>
         </div>
         '''
         return pdf_display
@@ -509,6 +510,67 @@ def embed_pdf_streamlit_enhanced(s3_key):
                    unsafe_allow_html=True)
         st.components.v1.html(html_download, height=100)
         
+        return True
+    except Exception as e:
+        st.error(f"Error displaying PDF: {str(e)}")
+        return False
+
+def embed_pdf_with_fallback(s3_key):
+    """Try multiple methods to display PDF with fallbacks."""
+    try:
+        # Try presigned URL with PDF.js first (most reliable)
+        html = embed_pdf_with_pdfjs_viewer(s3_key)
+        if not html or html.strip().startswith("<p style='color:red'>"):
+            # Try presigned URL method
+            html = embed_pdf_with_presigned_url(s3_key)
+            if not html or html.strip().startswith("<p style='color:red'>"):
+                # Try base64 encoding
+                html = embed_pdf_base64(s3_key)
+                if not html or html.strip().startswith("<p style='color:red'>"):
+                    # Final fallback to enhanced Streamlit method
+                    return embed_pdf_streamlit_enhanced(s3_key)
+        return html
+    except Exception as e:
+        st.error(f"Error displaying PDF: {str(e)}")
+        # Return a simple error message as HTML
+        return f"<p style='color:red'>Error displaying PDF: {str(e)}</p>"
+
+def embed_pdf_streamlit_with_presigned_url(s3_key, expiration=3600):
+    """Display PDF in Streamlit using a pre-signed S3 URL."""
+    try:
+        s3_client = get_s3_client()
+        bucket_name = st.secrets["aws"]["bucket_name"]
+        full_key = get_full_s3_key(s3_key)
+        
+        url = s3_client.generate_presigned_url(
+            'get_object',
+            Params={
+                'Bucket': bucket_name,
+                'Key': full_key,
+                'ResponseContentType': 'application/pdf',
+                'ResponseContentDisposition': 'inline; filename="document.pdf"',
+                'ResponseCacheControl': 'no-store, must-revalidate',
+                'ResponseExpires': '0'
+            },
+            ExpiresIn=expiration
+        )
+        
+        html = f'''
+        <div style="width:100%; height:800px;">
+            <iframe 
+                src="{url}"
+                type="application/pdf"
+                width="100%" 
+                height="100%"
+                style="border: none;"
+                allow="fullscreen"
+                sandbox="allow-same-origin allow-scripts allow-forms allow-downloads">
+            </iframe>
+        </div>
+        '''
+        
+        st.components.v1.html(html, height=800, scrolling=True)
+        st.markdown(f"[Open PDF directly]({url})")
         return True
     except Exception as e:
         st.error(f"Error displaying PDF: {str(e)}")

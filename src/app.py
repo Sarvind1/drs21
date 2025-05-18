@@ -10,10 +10,9 @@ from utils import (
     load_data,
     format_status_tag,
     format_portal_status,
-    embed_pdf_with_fallback,
+    embed_pdf_with_fallback,  # Now properly defined in utils.py
     embed_pdf_base64,
     embed_pdf_in_browser,
-    embed_pdf_with_pdfjs,
     embed_pdf_with_pdfjs_viewer,
     embed_pdf_streamlit,
     embed_pdf_with_presigned_url,
