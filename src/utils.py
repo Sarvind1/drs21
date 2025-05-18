@@ -349,10 +349,13 @@ def embed_pdf_base64(file_path_or_s3key):
 
 def embed_pdf_with_fallback(s3_key):
     """Try multiple methods to display PDF with fallbacks."""
+    # Try presigned URL with PDF.js first (most reliable)
     html = embed_pdf_with_pdfjs_viewer(s3_key)
     if not html or html.strip().startswith("<p style='color:red'>"):
+        # Try direct presigned URL
         html = embed_pdf_with_presigned_url(s3_key)
         if not html or html.strip().startswith("<p style='color:red'>"):
+            # Fallback to base64
             html = embed_pdf_base64(s3_key)
     return html
 
@@ -428,22 +431,23 @@ def embed_pdf_with_pdfjs_viewer(s3_key):
         s3_client = get_s3_client()
         bucket_name = st.secrets["aws"]["bucket_name"]
         full_key = get_full_s3_key(s3_key)
-        buffer = BytesIO()
         
-        try:
-            s3_client.download_fileobj(bucket_name, full_key, buffer)
-        except ClientError as e:
-            if e.response['Error']['Code'] == '404':
-                return f"<p style='color:red'>PDF not found: {s3_key}</p>"
-            raise
-            
-        buffer.seek(0)
-        base64_pdf = base64.b64encode(buffer.read()).decode('utf-8')
+        # Generate pre-signed URL with inline content disposition
+        url = s3_client.generate_presigned_url(
+            'get_object',
+            Params={
+                'Bucket': bucket_name,
+                'Key': full_key,
+                'ResponseContentType': 'application/pdf',
+                'ResponseContentDisposition': 'inline'
+            },
+            ExpiresIn=3600
+        )
         
         pdf_display = f'''
         <div style="width:100%; height:800px;">
             <iframe
-                src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/web/viewer.html?file=data:application/pdf;base64,{base64_pdf}"
+                src="https://mozilla.github.io/pdf.js/web/viewer.html?file={url}"
                 width="100%"
                 height="100%"
                 style="border: none;">

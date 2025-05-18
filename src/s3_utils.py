@@ -93,7 +93,12 @@ def get_s3_file_url(relative_key):
         full_key = get_full_s3_key(relative_key)
         url = s3_client.generate_presigned_url(
             'get_object',
-            Params={'Bucket': bucket_name, 'Key': full_key},
+            Params={
+                'Bucket': bucket_name, 
+                'Key': full_key,
+                'ResponseContentType': 'application/pdf',
+                'ResponseContentDisposition': 'inline'
+            },
             ExpiresIn=3600  # URL expires in 1 hour
         )
         return url
@@ -130,4 +135,4 @@ def list_s3_files(prefix=""):
         return []
     except Exception as e:
         st.error(f"Error listing S3 files: {str(e)}")
-        return [] 
+        return []
