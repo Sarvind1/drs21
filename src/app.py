@@ -207,3 +207,14 @@ if 'selected_comparison' in st.session_state:
                    unsafe_allow_html=True)
         st.markdown(embed_pdf_with_fallback(v2_row['file_path'].iloc[0] if not v2_row.empty else ''),
                    unsafe_allow_html=True)
+
+        # Additional embedding methods for debugging/comparison:
+        st.markdown("**Base64 iframe method:**", unsafe_allow_html=True)
+        from utils import embed_pdf_base64, embed_pdf_in_browser, embed_pdf_with_pdfjs
+        st.markdown(embed_pdf_base64(v2_row['file_path'].iloc[0] if not v2_row.empty else ''), unsafe_allow_html=True)
+
+        st.markdown("**Object/embed method:**", unsafe_allow_html=True)
+        st.markdown(embed_pdf_in_browser(v2_row['file_path'].iloc[0] if not v2_row.empty else ''), unsafe_allow_html=True)
+
+        st.markdown("**PDF.js method:**", unsafe_allow_html=True)
+        st.markdown(embed_pdf_with_pdfjs(v2_row['file_path'].iloc[0] if not v2_row.empty else ''), unsafe_allow_html=True)
